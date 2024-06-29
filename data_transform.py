@@ -24,6 +24,6 @@ for i in range(len(data)):
 
 data['Date'] = date_list
 data['Time'] = time_list
-data = data.drop(columns=['Pump Data'])
+data = data.drop(columns=['Pump Data' , 'Soil Moisture'])
 updated_file_path = 'updated_data.csv' 
 data.to_csv(updated_file_path, index=False)
