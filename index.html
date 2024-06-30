@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temperature and Humidity Dashboard</title>
+    <!-- Include Bootstrap for styling -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Include Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .chart-container {
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 20px;
+        }
+        .chart-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .chart-col {
+            flex: 1;
+        }
+        .card {
+            margin-bottom: 20px;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-4 mb-4">Temperature and Humidity Dashboard</h1>
+
+        <!-- Side-by-Side Curved Line Charts -->
+        <div class="chart-row">
+            <div class="chart-col">
+                <div class="chart-container">
+                    <canvas id="humidityChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+            <div class="chart-col">
+                <div class="chart-container">
+                    <canvas id="temperatureChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bar Charts Below Line Charts -->
+        <div class="chart-row">
+            <div class="chart-col">
+                <div class="chart-container">
+                    <canvas id="humidityBarChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+            <div class="chart-col">
+                <div class="chart-container">
+                    <canvas id="temperatureBarChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to fetch CSV data
+        async function fetchData() {
+            const response = await fetch('updated_data.csv'); // Update with your CSV file path
+            const data = await response.text();
+            return data;
+        }
+
+        // Function to parse CSV data
+        function parseData(data) {
+            const lines = data.split('\n');
+            const headers = lines[0].split(',');
+
+            // Find index of 'Date', 'Air Humidity', and 'Temperature' columns
+            const dateIndex = headers.indexOf('Date');
+            const humidityIndex = headers.indexOf('Air Humidity');
+            const temperatureIndex = headers.indexOf('Temperature');
+
+            // Initialize arrays for chart data
+            const dates = {};
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',');
+                const date = values[dateIndex];
+                if (!dates[date]) {
+                    dates[date] = {
+                        humidity: [],
+                        temperature: []
+                    };
+                }
+                dates[date].humidity.push(parseFloat(values[humidityIndex]));
+                dates[date].temperature.push(parseFloat(values[temperatureIndex]));
+            }
+
+            return dates;
+        }
+
+        // Function to create curved line charts using Chart.js
+        async function createLineCharts() {
+            const data = await fetchData();
+            const dates = parseData(data);
+
+            // Get unique dates for labels
+            const dateLabels = Object.keys(dates);
+
+            // Create Humidity line chart
+            var humidityChart = new Chart(document.getElementById('humidityChart'), {
+                type: 'line',
+                data: {
+                    labels: dateLabels,
+                    datasets: [{
+                        label: 'Air Humidity (%)',
+                        data: dateLabels.map(date => dates[date].humidity.reduce((a, b) => a + b, 0) / dates[date].humidity.length),
+                        borderColor: 'blue',
+                        borderWidth: 1,
+                        fill: false,
+                        lineTension: 0.3 // Curved lines
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        xAxes: [{
+                            display: true,
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Date'
+                            }
+                        }],
+                        yAxes: [{
+                            display: true,
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Air Humidity (%)'
+                            }
+                        }]
+                    }
+                }
+            });
+
+            // Create Temperature line chart
+            var temperatureChart = new Chart(document.getElementById('temperatureChart'), {
+                type: 'line',
+                data: {
+                    labels: dateLabels,
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: dateLabels.map(date => dates[date].temperature.reduce((a, b) => a + b, 0) / dates[date].temperature.length),
+                        borderColor: 'red',
+                        borderWidth: 1,
+                        fill: false,
+                        lineTension: 0.3 // Curved lines
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        xAxes: [{
+                            display: true,
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Date'
+                            }
+                        }],
+                        yAxes: [{
+                            display: true,
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Temperature (°C)'
+                            }
+                        }]
+                    }
+                }
+            });
+        }
+
+        // Function to create bar charts using Chart.js
+        async function createBarCharts() {
+            const data = await fetchData();
+            const dates = parseData(data);
+
+            // Get unique dates for labels
+            const dateLabels = Object.keys(dates);
+
+            // Find highest and lowest values for humidity and temperature
+            let maxHumidity = 0;
+            let minHumidity = Infinity;
+            let maxTemperature = 0;
+            let minTemperature = Infinity;
+
+            dateLabels.forEach(date => {
+                const humidityValues = dates[date].humidity;
+                const temperatureValues = dates[date].temperature;
+
+                const maxHum = Math.max(...humidityValues);
+                const minHum = Math.min(...humidityValues);
+                const maxTemp = Math.max(...temperatureValues);
+                const minTemp = Math.min(...temperatureValues);
+
+                if (maxHum > maxHumidity) maxHumidity = maxHum;
+                if (minHum < minHumidity) minHumidity = minHum;
+                if (maxTemp > maxTemperature) maxTemperature = maxTemp;
+                if (minTemp < minTemperature) minTemperature = minTemp;
+            });
+
+            // Divide the range into 6 bars
+            const humidityStep = (maxHumidity - minHumidity) / 6;
+            const temperatureStep = (maxTemperature - minTemperature) / 6;
+
+            // Create Humidity bar chart
+            var humidityBarChart = new Chart(document.getElementById('humidityBarChart'), {
+                type: 'bar',
+                data: {
+                    labels: Array.from({ length: 6 }, (_, i) => `${(minHumidity + i * humidityStep).toFixed(2)} - ${(minHumidity + (i + 1) * humidityStep).toFixed(2)}`),
+                    datasets: [{
+                        label: 'Air Humidity (%)',
+                        data: dateLabels.map(date => {
+                            const avgHumidity = dates[date].humidity.reduce((a, b) => a + b, 0) / dates[date].humidity.length;
+                            const index = Math.floor((avgHumidity - minHumidity) / humidityStep);
+                            return index >= 0 && index < 6 ? avgHumidity : NaN;
+                        }),
+                        backgroundColor: 'blue',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        xAxes: [{
+                            display: true,
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Humidity (%)'
+                            }
+                        }],
+                        yAxes: [{
+                            display: true,
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Frequency'
+                            },
+                            ticks: {
+                                beginAtZero: true
+                            }
+                        }]
+                    }
+                }
+            });
+
+            // Create Temperature bar chart
+            var temperatureBarChart = new Chart(document.getElementById('temperatureBarChart'), {
+                type: 'bar',
+                data: {
+                    labels: Array.from({ length: 6 }, (_, i) => `${(minTemperature + i * temperatureStep).toFixed(2)} - ${(minTemperature + (i + 1) * temperatureStep).toFixed(2)}`),
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: dateLabels.map(date => {
+                            const avgTemperature = dates[date].temperature.reduce((a, b) => a + b, 0) / dates[date].temperature.length;
+                            const index = Math.floor((avgTemperature - minTemperature) / temperatureStep);
+                            return index >= 0 && index < 6 ? avgTemperature : NaN;
+                        }),
+                        backgroundColor: 'red',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        xAxes: [{
+                            display: true,
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Temperature (°C)'
+                            }
+                        }],
+                        yAxes: [{
+                            display: true,
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Frequency'
+                            },
+                            ticks: {
+                                beginAtZero: true
+                            }
+                        }]
+                    }
+                }
+            });
+        }
+
+        // Call createLineCharts and createBarCharts functions to generate charts
+        createLineCharts();
+        createBarCharts();
+    </script>
+</body>
+</html>
